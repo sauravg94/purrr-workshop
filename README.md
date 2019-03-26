@@ -7,3 +7,4 @@ Install the following packages:
 * tidyverse
 * broom
 * knitr
+* xaringan
