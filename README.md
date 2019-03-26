@@ -1,5 +1,5 @@
-# purrr-workshop
-Functional programming using purrr
+# purrr workshop
+Functional programming using the purrr package.
 ## Pre-requisites
 Install the following packages:
 * purrr
