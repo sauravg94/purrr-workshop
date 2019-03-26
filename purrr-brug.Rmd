@@ -1,0 +1,351 @@
+---
+title: "Functional Programming with Purrr"
+subtitle: "<br/>#brug"
+author: "Saurav Ghosh"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    css: [default, metropolis, metropolis-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+# What is Functional Programming
+
+## *Wikipedia*
+
+“ -a style of building the structure and elements of computer programs - that treats computation as the evaluation of **mathematical functions** and avoids **changing-state** and **mutable data**. It is a **declarative programming** paradigm, which means programming is done with expressions or declarations instead of statements.”
+
+
+---
+
+# A brief detour- Lambda calculus
+
+$\lambda x.x$
+
+Where the name after λ is the argument and the expression after the (.) is the body of the function. In programming languages, you can rewrite the above expression as:
+
+```{r}
+F<-function (x) { 
+    return(x) 
+}
+```
+
+
+### Example:
+
+\begin{align*}
+f(x) =& x^2
+\end{align*}
+
+Which can be rewritten as:
+
+\begin{align*}
+x =&>x^2
+\end{align*}
+
+---
+
+# Lambda contd…
+
+### Example 1
+\begin{align*}
+p =&\big[1..100\big].filter\big(\big(value\big)\Rightarrow\big\{return\ value\%2==0\big\}\big)
+\end{align*}
+
+### Example 2
+\begin{align*}
+a =&\big[1..50\big] \\
+a.map\big(\big(value\big)\Rightarrow\big\{return\ value*2\big\}\big)
+\end{align*}
+
+---
+
+# Question
+
+$\lambda x(\lambda y.x+y)$
+
+--
+\begin{align*}
+const\ F =&x\Rightarrow\big(y\Rightarrow\big(x+y\big)\big)
+\end{align*}
+
+--
+\begin{align*}
+F\big(5\big)\big(10\big)
+\end{align*}
+
+---
+
+# Summary
+
+* immutability (thread-safe)
+* explicit state management
+* side effect programming through data transformation
+* expressions vs statements
+* higher level functions (function that takes data and a function as arguments to transform the data)
+
+---
+
+# Purrr
+
+Two types of vectors:
+* Atomic
+* List
+
+---
+
+# Functions
+
+```{r message=FALSE}
+library(tidyverse)
+mt<-mtcars
+mt %>% str
+```
+
+---
+
+# Normalize
+
+## Let us normalize displacement and horsepower
+### Let us use min-max normalization
+
+```{r}
+mt$new_disp<-(mt$disp-min(mt$disp))/(max(mt$disp)-min(mt$disp))
+mt$new_hp<-(mt$hp-min(mt$hp))/(max(mt$hp)-min(mt$hp))
+summary(mt$new_hp)
+summary(mt$new_disp)
+```
+---
+
+# Write functions
+
+## Let us rewrite the normalization step as a function
+
+```{r}
+func_norm<-function(x){
+  (x-min(x))/(max(x)-min(x))
+}
+my_vec<-rnorm(15)
+my_vec
+# normalized myvec
+func_norm(my_vec)
+```
+
+---
+
+# Put it all together
+
+## Let us apply the function in the dataset mt
+
+```{r results="hide"}
+mt<-mt %>% mutate(norm_disp=func_norm(mt$disp)) 
+mt<-mt %>% mutate(norm_hp=func_norm(mt$hp))
+```
+
+```{r}
+summary(mt$norm_disp)
+summary(mt$norm_hp)
+```
+
+---
+
+# Use for loop
+
+```{r}
+mt_for<-mtcars
+for(i in seq_along(mtcars)){
+  mt_for[i]<-func_norm(mtcars[[i]])
+}
+summary(mt_for)
+```
+
+---
+
+# Can we do better?
+
+## Using map
+```{r}
+mt %>% 
+  map(function(x){
+    func_norm(x)
+  })
+```
+---
+
+# Even better
+
+## Use anonymous function
+```{r}
+mt %>% 
+  map(~func_norm(.))
+```
+---
+
+# Return as data frame
+
+```{r}
+mt %>% 
+  map_df(~func_norm(.))
+```
+
+---
+# purrr::map(.x,.f,...)
+
+*map* iterates over a list and returns a list.
+
+* .x list (or vector) to iterate over
+* .f function to apply over that list
+* ... things that get passed from map() to .f
+
+```{r}
+my_list=list(a=1:10,b=20:30)
+map(my_list,~mean(.))
+```
+---
+
+# more maps
+
+* map *list*
+* map_lgl *logical*
+* map_int *integer*
+* map_dbl *double*
+* map_chr *character*
+
+```{r}
+# map_chr
+map_chr(my_list,~mean(.))
+
+# map_dbl
+map_dbl(my_list,~mean(.))
+
+# map_lgl
+# map_lgl(my_list,~mean(.))
+# Error: Can't coerce element 1 from a double to a logical
+```
+
+---
+
+# map2
+
+## For two lists use map2
+
+`map2(.x, .y, .f, ...)`
+
+```{r}
+a<-c(1,3,5,7,9)
+b<-c(2,4,6,8,10)
+# map2
+map2(.x=a,.y = b,~sum(.x,.y))
+```
+---
+
+# pmap
+
+## For more, use pmap
+
+`pmap(.l, .f, ...)`
+```{r}
+a<-c(1,2,3,4)
+b<-c(5,6,7,8)
+c<-c(4,3,2,1)
+d<-c(8,7,6,5)
+pmap(list(a,b,c,d),~sum(a,b,c,d))
+```
+
+---
+
+# Many models with purrr
+
+## Gapminder data
+
+```{r message=FALSE}
+library(gapminder)
+library(broom)
+gapminder %>%
+  group_by(country) %>%
+  nest() %>%  
+  mutate(fit = map(data, ~ lm(lifeExp ~ year, data = .x)))
+```
+
+---
+
+# Many models contd...
+
+## View model parameters using broom package
+
+```{r}
+gp<-gapminder %>%
+  group_by(country) %>%
+  nest() %>%  
+  mutate(fit = map(data, ~ lm(lifeExp ~ year, data = .x))) %>% 
+  mutate(tidied=map(fit,tidy)) %>% 
+  mutate(glanced=map(fit,glance)) %>% 
+  mutate(augmented=map(fit,augment))
+gp
+```
+---
+
+# R-squared results
+
+```{r}
+gapminder %>%
+  group_by(country) %>%
+  nest() %>%  
+  mutate(fit = map(data, ~ lm(lifeExp ~ year, data = .x))) %>% 
+  mutate(tidied=map(fit,tidy)) %>% 
+  mutate(glanced=map(fit,glance)) %>% 
+  mutate(augmented=map(fit,augment)) %>% 
+  mutate(rsq=map(glanced,~.[["r.squared"]])) %>% 
+  unnest(rsq) %>% 
+  arrange(desc(rsq)) %>% 
+  top_n(5)
+```
+
+
+---
+
+# View Tidy results
+
+## Unnest the variable tidied
+
+```{r}
+unnest(gp,tidied)
+```
+---
+# View Glance results
+
+## Unnest the variable glanced
+
+```{r}
+unnest(gp,glanced)
+```
+---
+# View Augmented results
+
+## Unnest the variable augmented
+
+```{r}
+unnest(gp,augmented)
+```
+
+---
+
+# Other map functions
+
+* keep
+* discard
+* map_if
+* every
+* some
+
+More details on [Hooked on Data blog by Emily Robinson](https://hookedondata.org/going-off-the-map/).
+
+---
+
+# Thank you!
+
+## QnA
